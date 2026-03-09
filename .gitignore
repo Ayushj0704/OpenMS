@@ -270,3 +270,6 @@ github_token*
 # Claude/AI tokens
 .claude_token
 .anthropic_key
+
+bld_test/
+*.txt

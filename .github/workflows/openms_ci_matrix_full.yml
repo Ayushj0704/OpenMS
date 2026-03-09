@@ -120,7 +120,7 @@ jobs:
               sudo xcode-select -s '/Applications/Xcode_${{ matrix.compiler_ver }}.app/Contents/Developer'
               echo "cxx_compiler=clang++" >> $GITHUB_OUTPUT
             elif [[ "${{ matrix.compiler }}" == "clang++" ]]; then
-              echo "cxx_compiler=$(brew --prefix llvm@${{ matrix.compiler_ver }})/bin/clang++" >> $GITHUB_OUTPUT
+              echo "cxx_compiler=clang++" >> $GITHUB_OUTPUT
             else
               echo "Unsupported compiler"
               exit 1
@@ -180,88 +180,49 @@ jobs:
         with:
           arch: x64
 
-      - name: Install Pixi (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: pwsh
-        run: |
-          $ProgressPreference = "SilentlyContinue"
-          Invoke-RestMethod -Uri https://pixi.sh/install.ps1 | Invoke-Expression
-          "$env:USERPROFILE\.pixi\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install NSIS (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: pwsh
-        run: |
-          choco install nsis --no-progress -y
-          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          run-install: false
+          cache: true
+          cache-write: ${{ github.event_name != 'pull_request' }}
 
       - name: Set Up Build Tools
         id: tools-prefix
         shell: bash
-        env:
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
-          if [[ "${{ matrix.os }}" == windows-* ]]; then
-            cd OpenMS
-            pixi install --frozen
-            cd ..
+          cd OpenMS
+          pixi install --frozen
+          cd ..
 
+          PIXI_ENV="$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default"
+          echo "pixi_env=$PIXI_ENV" >> $GITHUB_OUTPUT
+
+          if [[ "${{ matrix.os }}" == windows-* ]]; then
             # make pixi-managed binaries available to subsequent steps
-            echo "$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default/bin" >> $GITHUB_PATH
-            echo "$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default/Library/bin" >> $GITHUB_PATH
+            echo "$PIXI_ENV/bin" >> $GITHUB_PATH
+            echo "$PIXI_ENV/Library/bin" >> $GITHUB_PATH
 
             # tell cmake where to find libraries installed by pixi
-            PIXI_ENV="$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default"
             echo "cmake_prefix=$PIXI_ENV;$PIXI_ENV/Library;$PIXI_ENV/Library/lib/cmake;$PIXI_ENV/Library/lib;$PIXI_ENV/lib/cmake;$PIXI_ENV/lib" >> $GITHUB_OUTPUT
-            echo "pixi_env=$PIXI_ENV" >> $GITHUB_OUTPUT
+
             # Append pixi Library/lib to MSVC linker search path so mkl_rt.lib
             # and other import libs are found for transitive coin-or BLAS linking
             echo "LIB=$PIXI_ENV/Library/lib${LIB:+;$LIB}" >> $GITHUB_ENV
 
-          fi
-
-          if [[ "${{ matrix.os }}" == ubuntu-* ]]; then
-            # pixi handles all native dependencies for Linux builds
-            curl -fsSL https://pixi.sh/install.sh | bash
-            export PATH="$HOME/.pixi/bin:$PATH"
-
-            cd OpenMS
-            pixi install --frozen
-            cd ..
-
+            # pixi nsis package installs into Library/nsis on Windows.
+            echo "$PIXI_ENV/Library/nsis" >> $GITHUB_PATH
+          else
             # make pixi-managed binaries available to subsequent steps
-            echo "$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default/bin" >> $GITHUB_PATH
+            echo "$PIXI_ENV/bin" >> $GITHUB_PATH
 
             # tell cmake where to find libraries installed by pixi
-            PIXI_ENV="$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default"
             echo "cmake_prefix=$PIXI_ENV;$PIXI_ENV/lib/cmake;$PIXI_ENV/share/cmake;$PIXI_ENV/lib" >> $GITHUB_OUTPUT
-            echo "pixi_env=$PIXI_ENV" >> $GITHUB_OUTPUT
-
-            # clang needs the OpenMP runtime which isn't bundled with the compiler on Ubuntu
-            if [[ "${{ matrix.compiler }}" == clang* ]]; then
-              sudo apt-get -qq install -y libomp-${{ matrix.compiler_ver }}-dev
-            fi
           fi
 
-          if [[ "${{ matrix.os }}" == macos-* ]]; then
-            # pixi handles all native dependencies for macOS builds
-            curl -fsSL https://pixi.sh/install.sh | bash
-            export PATH="$HOME/.pixi/bin:$PATH"
-
-            cd OpenMS
-            pixi install --frozen
-            cd ..
-
-            # make pixi-managed binaries available to subsequent steps
-            echo "$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default/bin" >> $GITHUB_PATH
-
-            # tell cmake where to find libraries installed by pixi
-            PIXI_ENV="$GITHUB_WORKSPACE/OpenMS/.pixi/envs/default"
-            echo "cmake_prefix=$PIXI_ENV;$PIXI_ENV/lib/cmake;$PIXI_ENV/share/cmake;$PIXI_ENV/lib" >> $GITHUB_OUTPUT
-            echo "pixi_env=$PIXI_ENV" >> $GITHUB_OUTPUT
-
-            brew install ccache
-            echo "$(brew --prefix)/bin" >> $GITHUB_PATH
+          # clang needs the OpenMP runtime which isn't bundled with the compiler on Ubuntu
+          if [[ "${{ matrix.os }}" == ubuntu-* && "${{ matrix.compiler }}" == clang* ]]; then
+            sudo apt-get -qq install -y libomp-${{ matrix.compiler_ver }}-dev
           fi
 
       # FIX: Set DYLD_LIBRARY_PATH on macOS so that built binaries (run during
@@ -370,6 +331,7 @@ jobs:
           # so CMake's FindBLAS and the MSVC linker both resolve DGETRF/DGETRS symbols.
           BLAS_LIBRARIES: ${{ startsWith(matrix.os, 'windows') && format('{0}/Library/lib/mkl_rt.lib', steps.tools-prefix.outputs.pixi_env) || '' }}
           LAPACK_LIBRARIES: ${{ startsWith(matrix.os, 'windows') && format('{0}/Library/lib/mkl_rt.lib', steps.tools-prefix.outputs.pixi_env) || '' }}
+          OPENMS_LINK_COIN_BLAS: ${{ startsWith(matrix.os, 'windows') && 'ON' || '' }}
           OPENMS_CONTRIB_LIBS: ${{ startsWith(matrix.os, 'ubuntu') && format('{0}/OpenMS/contrib', github.workspace) || '' }}
           CI_PROVIDER: "GitHub-Actions"
           CMAKE_GENERATOR: "Ninja"

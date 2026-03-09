@@ -1,0 +1,5 @@
+[33me77a7af4b7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mpixi-migration[m[33m)[m set nocompatible set number set relativenumber set syntax=on set mouse=a set autoindent set tabstop=4 set shiftwidth=4 set expandtab set cursorline
+[33mb08fb14400[m[33m ([m[1;31morigin/pixi-migration[m[33m)[m fix: restore OPENMS_LINK_COIN_BLAS, remove FLAME reference, clean pixi deps
+[33m3c7e8fa5be[m restore OPENMS_LINK_COIN_BLAS with plain find_package(BLAS/LAPACK)
+[33me8db1bb25e[m [BUILD,CI] Pin pixi deps and fix CoinOR MKL linkage
+[33m2f2cc5d9e0[m [BUILD] stabilize CoinOR BLAS/LAPACK lookup
