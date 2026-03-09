@@ -27,6 +27,7 @@ _deps
 
 #These are the typical build directories
 /build
+/bld
 /build-debug/*
 /build-release/*
 /OpenMS-build/*

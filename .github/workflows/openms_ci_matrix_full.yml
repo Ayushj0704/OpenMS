@@ -246,7 +246,7 @@ jobs:
           CCACHE_DIR=${{ github.workspace }}/.ccache ccache -s || true
           echo "::endgroup::"
 
-          mkdir $GITHUB_WORKSPACE/OpenMS/bld/
+          mkdir -p $GITHUB_WORKSPACE/OpenMS/bld/
           bash OpenMS/tools/ci/capture-env.sh -v $GITHUB_WORKSPACE/OpenMS/bld/CMakeCache.txt
           ${{ steps.set-vars.outputs.xvfb }} ctest --output-on-failure -V -S $GITHUB_WORKSPACE/OpenMS/tools/ci/cibuild.cmake
           retVal=$?
