@@ -189,12 +189,12 @@ foreach(TOOL ${CTD_executables})
   if(${TOOL} IN_LIST THIRDPARTY_ADAPTERS)
     add_custom_command(
       TARGET  create_ctds POST_BUILD
-      COMMAND ${TOPP_BIN_PATH}/${TOOL} -write_ctd ${CTD_TP_PATH}
+      COMMAND $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_TP_PATH}
     )
   else()
     add_custom_command(
         TARGET  create_ctds POST_BUILD
-        COMMAND ${TOPP_BIN_PATH}/${TOOL} -write_ctd ${CTD_PATH}
+        COMMAND $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_PATH}
     )
   endif()
 endforeach()
@@ -206,7 +206,7 @@ endforeach()
 # TODO change description and accepting file types?
 add_custom_command(
   TARGET  create_ctds POST_BUILD
-  COMMAND ${TOPP_BIN_PATH}/FileConverter -write_ctd ${CTD_TP_PATH}
+  COMMAND $<TARGET_FILE:FileConverter> -write_ctd ${CTD_TP_PATH}
   COMMAND ${CMAKE_COMMAND} -E rename ${CTD_TP_PATH}/FileConverter.ctd ${CTD_TP_PATH}/RawFileConverter.ctd
   COMMAND ${CMAKE_COMMAND} -DSCRIPT_DIR=${SCRIPT_DIRECTORY} -DTOOLNAME=RawFileConverter -DCTD_FILE=${CTD_TP_PATH}/RawFileConverter.ctd -P ${SCRIPT_DIRECTORY}change_exec_name_in_ctd.cmake
 )
@@ -288,7 +288,7 @@ endif()
 
 # copy the binaries
 foreach(TOOL ${CTD_executables})
-  set(tool_path ${TOPP_BIN_PATH}/${TOOL}${CMAKE_EXECUTABLE_SUFFIX})
+  set(tool_path $<TARGET_FILE:${TOOL}>)
   if(${TOOL} IN_LIST THIRDPARTY_ADAPTERS)
     add_custom_command(
         TARGET  prepare_knime_payload_binaries POST_BUILD
