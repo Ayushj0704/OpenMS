@@ -273,11 +273,12 @@ add_custom_target(
 # This mainly helps on Ninja where missing dependencies can otherwise show up
 # as a generic "subcommand failed" during KNIME payload creation.
 if(NOT CMAKE_CONFIGURATION_TYPES)
+  string(REPLACE ";" "\\;" ctd_executables_escaped "${CTD_executables}")
   add_custom_target(
     knime_preflight_topp_binaries
     COMMAND ${CMAKE_COMMAND}
       -DTOPP_BIN_PATH=${TOPP_BIN_PATH}
-      -DTOOL_LIST="${CTD_executables}"
+      -DTOOL_LIST=${ctd_executables_escaped}
       -DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}
       -P ${SCRIPT_DIRECTORY}check_topp_binaries.cmake
     DEPENDS TOPP

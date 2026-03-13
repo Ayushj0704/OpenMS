@@ -16,7 +16,9 @@
 #include <OpenMS/FORMAT/FileTypes.h>
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <algorithm>
 #include <cmath>
+#include <string_view>
 #include <unordered_map>
 
 
@@ -295,6 +297,18 @@ namespace OpenMS
 
           SignedSize nr_batches = (transition_exp_used_all.getCompounds().size() / batch_size);
 
+          // Pre-index transitions by peptide_ref to avoid scanning all transitions for each batch.
+          // This is especially important for very large (in-silico) libraries where the number of
+          // transitions per SWATH window can be substantial.
+          using TransitionIndex = std::unordered_map<std::string_view, std::vector<Size>>;
+          TransitionIndex transition_index;
+          transition_index.reserve(transition_exp_used_all.getCompounds().size());
+          for (Size t = 0; t < transition_exp_used_all.transitions.size(); ++t)
+          {
+            const auto key = std::string_view(transition_exp_used_all.transitions[t].peptide_ref);
+            transition_index.try_emplace(key).first->second.push_back(t);
+          }
+
 #ifdef _OPENMP
 #ifdef MT_ENABLE_NESTED_OPENMP
           // If we have a multiple of threads_outer_loop_ here, then use nested
@@ -313,6 +327,14 @@ namespace OpenMS
           for (SignedSize pep_idx = 0; pep_idx <= nr_batches; pep_idx++)
           {
             OpenSwath::SpectrumAccessPtr current_swath_map_inner = current_swath_map;
+
+            const size_t batch_start = static_cast<size_t>(pep_idx) * static_cast<size_t>(batch_size);
+            if (batch_start >= transition_exp_used_all.compounds.size())
+            {
+              continue;
+            }
+            const size_t batch_end = std::min(batch_start + static_cast<size_t>(batch_size),
+                                              transition_exp_used_all.compounds.size());
 
 #ifdef _OPENMP
 #ifdef MT_ENABLE_NESTED_OPENMP
@@ -344,7 +366,31 @@ namespace OpenMS
 
             // Create the new, batch-size transition experiment
             OpenSwath::LightTargetedExperiment transition_exp_used;
-            selectCompoundsForBatch_(transition_exp_used_all, transition_exp_used, batch_size, pep_idx);
+            transition_exp_used.proteins = transition_exp_used_all.proteins;
+            transition_exp_used.compounds.insert(transition_exp_used.compounds.end(),
+              transition_exp_used_all.compounds.begin() + batch_start,
+              transition_exp_used_all.compounds.begin() + batch_end);
+
+            // Collect transition indices for all compounds in this batch, then sort by original
+            // transition order to preserve output determinism (matches the previous behavior).
+            std::vector<Size> transition_indices;
+            for (const auto& compound : transition_exp_used.compounds)
+            {
+              const auto it = transition_index.find(std::string_view(compound.id));
+              if (it != transition_index.end())
+              {
+                transition_indices.insert(transition_indices.end(), it->second.begin(), it->second.end());
+              }
+            }
+            std::sort(transition_indices.begin(), transition_indices.end());
+            transition_indices.erase(std::unique(transition_indices.begin(), transition_indices.end()),
+                                     transition_indices.end());
+
+            transition_exp_used.transitions.reserve(transition_indices.size());
+            for (const auto idx : transition_indices)
+            {
+              transition_exp_used.transitions.push_back(transition_exp_used_all.transitions[idx]);
+            }
 
             // Extract MS1 chromatograms for this batch
             std::vector< MSChromatogram > ms1_chromatograms;
@@ -850,5 +896,4 @@ namespace OpenMS
     }
   }
 }
-
 

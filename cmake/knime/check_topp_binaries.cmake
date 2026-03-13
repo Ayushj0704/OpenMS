@@ -15,6 +15,13 @@ if(NOT DEFINED EXE_SUFFIX)
   set(EXE_SUFFIX "")
 endif()
 
+# `TOOL_LIST` should be a CMake list (semicolon-separated). Depending on how it
+# is passed through a build tool, it may arrive as a single space-separated
+# string. Normalize to a proper list in that case.
+if(TOOL_LIST MATCHES "[ \t\r\n]+" AND NOT TOOL_LIST MATCHES ";")
+  string(REGEX REPLACE "[ \t\r\n]+" ";" TOOL_LIST "${TOOL_LIST}")
+endif()
+
 set(missing_tools "")
 foreach(tool IN LISTS TOOL_LIST)
   set(tool_path "${TOPP_BIN_PATH}/${tool}${EXE_SUFFIX}")
@@ -33,4 +40,3 @@ if(missing_count GREATER 0)
 endif()
 
 message(STATUS "KNIME preflight: all TOPP binaries present in '${TOPP_BIN_PATH}'.")
-
