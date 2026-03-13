@@ -28,6 +28,35 @@
 using namespace OpenMS;
 using namespace std;
 
+namespace
+{
+  template <typename TFilePtr>
+  auto openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, int)
+    -> decltype(parquet::arrow::OpenFile(infile, pool).ValueOrDie(),
+                arrow::Result<std::unique_ptr<parquet::arrow::FileReader>>())
+  {
+    return parquet::arrow::OpenFile(infile, pool);
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, long)
+  {
+    std::unique_ptr<parquet::arrow::FileReader> reader;
+    auto status = parquet::arrow::OpenFile(infile, pool, &reader);
+    if (!status.ok())
+    {
+      return status;
+    }
+    return reader;
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReader_(const TFilePtr& infile, arrow::MemoryPool* pool)
+  {
+    return openParquetReaderImpl_(infile, pool, 0);
+  }
+}
+
 START_TEST(ProteinIdentificationArrowIO, "$Id$")
 
 /////////////////////////////////////////////////////////////
@@ -588,7 +617,7 @@ START_SECTION(exportProteinsToParquet())
   TEST_EQUAL(infile_result.ok(), true)
   std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-  auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+  auto reader_result = openParquetReader_(infile, arrow::default_memory_pool());
   TEST_EQUAL(reader_result.ok(), true)
   std::unique_ptr<parquet::arrow::FileReader> reader = std::move(reader_result.ValueOrDie());
 
@@ -635,7 +664,7 @@ START_SECTION(exportProteinGroupsToParquet())
   TEST_EQUAL(infile_result.ok(), true)
   std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-  auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+  auto reader_result = openParquetReader_(infile, arrow::default_memory_pool());
   TEST_EQUAL(reader_result.ok(), true)
   std::unique_ptr<parquet::arrow::FileReader> reader = std::move(reader_result.ValueOrDie());
 
@@ -687,7 +716,7 @@ START_SECTION(exportSearchParamsToParquet())
   TEST_EQUAL(infile_result.ok(), true)
   std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-  auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+  auto reader_result = openParquetReader_(infile, arrow::default_memory_pool());
   TEST_EQUAL(reader_result.ok(), true)
   std::unique_ptr<parquet::arrow::FileReader> reader = std::move(reader_result.ValueOrDie());
 

@@ -26,6 +26,35 @@
 using namespace OpenMS;
 using namespace std;
 
+namespace
+{
+  template <typename TFilePtr>
+  auto openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, int)
+    -> decltype(parquet::arrow::OpenFile(infile, pool).ValueOrDie(),
+                arrow::Result<std::unique_ptr<parquet::arrow::FileReader>>())
+  {
+    return parquet::arrow::OpenFile(infile, pool);
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, long)
+  {
+    std::unique_ptr<parquet::arrow::FileReader> reader;
+    auto status = parquet::arrow::OpenFile(infile, pool, &reader);
+    if (!status.ok())
+    {
+      return status;
+    }
+    return reader;
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReader_(const TFilePtr& infile, arrow::MemoryPool* pool)
+  {
+    return openParquetReaderImpl_(infile, pool, 0);
+  }
+}
+
 START_TEST(QPXFile, "$Id$")
 
 /////////////////////////////////////////////////////////////
@@ -293,7 +322,7 @@ START_SECTION(static bool exportToParquet(...))
   infile = result.ValueOrDie();
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_ASSIGN_OR_THROW(reader, parquet::arrow::OpenFile(infile, pool));
+  PARQUET_ASSIGN_OR_THROW(reader, openParquetReader_(infile, pool));
 
   std::shared_ptr<arrow::Table> table;
   auto read_status = reader->ReadTable(&table);

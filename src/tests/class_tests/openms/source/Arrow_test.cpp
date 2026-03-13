@@ -20,6 +20,35 @@
 
 using namespace OpenMS;
 
+namespace
+{
+  template <typename TFilePtr>
+  auto openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, int)
+    -> decltype(parquet::arrow::OpenFile(infile, pool).ValueOrDie(),
+                arrow::Result<std::unique_ptr<parquet::arrow::FileReader>>())
+  {
+    return parquet::arrow::OpenFile(infile, pool);
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReaderImpl_(const TFilePtr& infile, arrow::MemoryPool* pool, long)
+  {
+    std::unique_ptr<parquet::arrow::FileReader> reader;
+    auto status = parquet::arrow::OpenFile(infile, pool, &reader);
+    if (!status.ok())
+    {
+      return status;
+    }
+    return reader;
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReader_(const TFilePtr& infile, arrow::MemoryPool* pool)
+  {
+    return openParquetReaderImpl_(infile, pool, 0);
+  }
+}
+
 //example code used here can be found at: https://arrow.apache.org/docs/cpp/tutorials/io_tutorial.html
 
 
@@ -289,13 +318,11 @@ std::shared_ptr<arrow::io::ReadableFile> infile;
 
   // (Doc section: Parquet OpenFile)
 
-  // Note that Parquet's OpenFile() takes the reader by reference, rather than returning
+  // Parquet's OpenFile() API differs by version: either it returns a reader
+  // directly (Result API) or fills an output reader pointer (Status API).
 
-  // a reader.
-
-  PARQUET_ASSIGN_OR_THROW(reader,
-
-                          parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(reader,
+                        openParquetReader_(infile, arrow::default_memory_pool()));
 
   // (Doc section: Parquet OpenFile)
 
