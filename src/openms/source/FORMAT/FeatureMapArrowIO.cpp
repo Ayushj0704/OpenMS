@@ -36,6 +36,39 @@ namespace OpenMS
 
 namespace // anonymous
 {
+  /**
+    @brief Open a parquet Arrow reader across API variants.
+
+    Some Parquet/Arrow versions expose `OpenFile(file, pool)` returning
+    `arrow::Result<std::unique_ptr<FileReader>>`, while older versions expose
+    `OpenFile(file, pool, &reader)` returning `arrow::Status`.
+  */
+  template <typename TFilePtr>
+  auto openParquetReaderImpl_(const TFilePtr& infile, int)
+    -> decltype(parquet::arrow::OpenFile(infile, arrow::default_memory_pool()).ValueOrDie(),
+                arrow::Result<std::unique_ptr<parquet::arrow::FileReader>>())
+  {
+    return parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReaderImpl_(const TFilePtr& infile, long)
+  {
+    std::unique_ptr<parquet::arrow::FileReader> reader;
+    auto status = parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader);
+    if (!status.ok())
+    {
+      return status;
+    }
+    return reader;
+  }
+
+  template <typename TFilePtr>
+  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReader_(const TFilePtr& infile)
+  {
+    return openParquetReaderImpl_(infile, 0);
+  }
+
   // ==================== Export helpers ====================
 
   /// Append all MetaValues (excluding specified keys) from a MetaInfoInterface to the struct builders.
@@ -553,7 +586,7 @@ namespace // anonymous
     }
     auto infile = *infile_result;
 
-    auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+    auto reader_result = openParquetReader_(infile);
     if (!reader_result.ok())
     {
       OPENMS_LOG_ERROR << "FeatureMapArrowIO: Failed to create Parquet reader for: " << filename << std::endl;
