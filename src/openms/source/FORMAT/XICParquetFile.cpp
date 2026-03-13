@@ -38,6 +38,39 @@ namespace OpenMS
   namespace
   {
 #ifdef WITH_PARQUET
+    /**
+      @brief Open a parquet Arrow reader across API variants.
+
+      Some Parquet/Arrow versions expose `OpenFile(file, pool)` returning
+      `arrow::Result<std::unique_ptr<FileReader>>`, while older versions expose
+      `OpenFile(file, pool, &reader)` returning `arrow::Status`.
+    */
+    template <typename TFilePtr>
+    auto openParquetReaderImpl_(const TFilePtr& infile, int)
+      -> decltype(parquet::arrow::OpenFile(infile, arrow::default_memory_pool()).ValueOrDie(),
+                  arrow::Result<std::unique_ptr<parquet::arrow::FileReader>>())
+    {
+      return parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+    }
+
+    template <typename TFilePtr>
+    arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReaderImpl_(const TFilePtr& infile, long)
+    {
+      std::unique_ptr<parquet::arrow::FileReader> reader;
+      auto status = parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader);
+      if (!status.ok())
+      {
+        return status;
+      }
+      return reader;
+    }
+
+    template <typename TFilePtr>
+    arrow::Result<std::unique_ptr<parquet::arrow::FileReader>> openParquetReader_(const TFilePtr& infile)
+    {
+      return openParquetReaderImpl_(infile, 0);
+    }
+
     /// Read a single parquet file into an Arrow table.
     std::shared_ptr<arrow::Table> readParquetTable_(const String& filename)
     {
@@ -49,7 +82,7 @@ namespace OpenMS
       }
       std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-      auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+      auto reader_result = openParquetReader_(infile);
       if (!reader_result.ok())
       {
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
@@ -86,7 +119,7 @@ namespace OpenMS
       }
       std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-      auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+      auto reader_result = openParquetReader_(infile);
       if (!reader_result.ok())
       {
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
@@ -138,7 +171,7 @@ namespace OpenMS
       }
       std::shared_ptr<arrow::io::ReadableFile> infile = *infile_result;
 
-      auto reader_result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
+      auto reader_result = openParquetReader_(infile);
       if (!reader_result.ok())
       {
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
