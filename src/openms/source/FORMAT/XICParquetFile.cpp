@@ -295,6 +295,20 @@ namespace OpenMS
       }
       if (column->num_chunks() == 0)
       {
+        // Some Arrow versions represent empty columns as chunked arrays with 0 chunks.
+        // This is valid for empty tables (e.g. after filtering). Only treat this as an
+        // error when the table claims to have rows.
+        if (table->num_rows() == 0)
+        {
+          auto empty = arrow::MakeArrayOfNull(column->type(), 0);
+          if (!empty.ok())
+          {
+            throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+                                          "Failed to create empty array for chunkless column",
+                                          empty.status().ToString());
+          }
+          return *empty;
+        }
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
                                       "Column has no chunks", name);
       }

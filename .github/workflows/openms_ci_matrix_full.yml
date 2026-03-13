@@ -268,10 +268,6 @@ jobs:
           PYOPENMS: "OFF"
           NO_DEPENDENCIES: "ON"
           CMAKE_PREFIX_PATH: "${{ steps.tools-prefix.outputs.cmake_prefix }}"
-          # Windows CoinOR static libraries require BLAS/LAPACK symbols; mkl_rt.lib
-          # from the pixi env provides the expected exports.
-          BLAS_LIBRARIES: ${{ steps.tools-prefix.outputs.coin_blas_lib }}
-          LAPACK_LIBRARIES: ${{ steps.tools-prefix.outputs.coin_blas_lib }}
           OPENMS_LINK_COIN_BLAS: ${{ startsWith(matrix.os, 'windows') && 'ON' || '' }}
           OPENMS_PIXI_BUILD: ${{ steps.tools-prefix.outputs.openms_pixi_build }}
           OPENMS_CONTRIB_LIBS: ${{ startsWith(matrix.os, 'ubuntu') && format('{0}/OpenMS/contrib', github.workspace) || '' }}

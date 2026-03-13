@@ -39,10 +39,9 @@
 # required scripts
 include(${CMAKE_CURRENT_LIST_DIR}/SelectLibraryConfigurations.cmake)
 
-# Explicit toggle for linking BLAS/LAPACK into CoinOR. This is required for
-# conda-forge/pixi builds where CoinOR is provided without transitive BLAS
-# linkage and CMake's built-in BLAS/LAPACK detection is configured via
-# BLA_VENDOR.
+# Explicit toggle for linking BLAS/LAPACK into CoinOR. This can be required for
+# some package managers or environments (e.g. vcpkg, pixi/conda-forge) where the
+# CoinOR libraries are not linked against BLAS/LAPACK transitively.
 option(OPENMS_LINK_COIN_BLAS
   "Explicitly link BLAS/LAPACK into CoinOR (required for conda-forge/pixi builds)"
   OFF)
@@ -140,14 +139,16 @@ endmacro()
 
 if(NOT TARGET CoinOR::CoinOR)
   add_library(CoinOR::CoinOR INTERFACE IMPORTED)
-  if(VCPKG_TOOLCHAIN OR OPENMS_LINK_COIN_BLAS)
+  if(VCPKG_TOOLCHAIN OR OPENMS_LINK_COIN_BLAS OR OPENMS_PIXI_BUILD)
     # Currently coin-or from vcpkg requires BLAS and LAPACK. For conda-forge/
     # pixi builds, BLAS/LAPACK are also needed but VCPKG_TOOLCHAIN is not set,
     # so this option allows explicitly opting in from the build configuration.
     # TODO: Find a better way to do this. Ideal would be if Coin exports a
     # CMake config. Maybe we can parse a header file? Or try_compile?
     find_package(BLAS)
+    message(STATUS "FindBLAS result: BLAS_FOUND='${BLAS_FOUND}', BLAS_LIBRARIES='${BLAS_LIBRARIES}', BLAS_LINKER_FLAGS='${BLAS_LINKER_FLAGS}', BLA_VENDOR='${BLA_VENDOR}'")
     find_package(LAPACK)
+    message(STATUS "FindLAPACK result: LAPACK_FOUND='${LAPACK_FOUND}', LAPACK_LIBRARIES='${LAPACK_LIBRARIES}', BLA_VENDOR='${BLA_VENDOR}'")
 
     # On some configurations, CMake's FindLAPACK may fail to detect lapack.lib
     # when BLA_VENDOR is set. Retry without vendor restriction before giving up.

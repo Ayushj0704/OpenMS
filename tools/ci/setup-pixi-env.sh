@@ -58,9 +58,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
 
   if [[ ${is_windows} -eq 1 ]]; then
     echo "cmake_prefix=${pixi_env};${pixi_env}/Library;${pixi_env}/Library/lib/cmake;${pixi_env}/Library/lib;${pixi_env}/lib/cmake;${pixi_env}/lib" >> "${GITHUB_OUTPUT}"
-    echo "coin_blas_lib=${pixi_env}/Library/lib/mkl_rt.lib" >> "${GITHUB_OUTPUT}"
   else
     echo "cmake_prefix=${pixi_env};${pixi_env}/lib/cmake;${pixi_env}/share/cmake;${pixi_env}/lib" >> "${GITHUB_OUTPUT}"
-    echo "coin_blas_lib=" >> "${GITHUB_OUTPUT}"
   fi
 fi
