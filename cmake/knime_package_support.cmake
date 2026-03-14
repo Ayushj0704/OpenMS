@@ -273,12 +273,21 @@ add_custom_target(
 # This mainly helps on Ninja where missing dependencies can otherwise show up
 # as a generic "subcommand failed" during KNIME payload creation.
 if(NOT CMAKE_CONFIGURATION_TYPES)
-  string(REPLACE ";" "\\;" ctd_executables_escaped "${CTD_executables}")
+  # NOTE: Do not pass a semicolon-separated CMake list through /bin/sh.
+  # In the CI build logs this ended up as:
+  #   -DTOOL_LIST=a;b;c
+  # which the shell interprets as command separators ("b: not found", ...).
+  #
+  # To make this robust across shells and generators, write the tool list to a
+  # file at configure time and pass only the file path to the script.
+  set(knime_topp_tool_list_file "${CMAKE_BINARY_DIR}/knime_topp_tools.txt")
+  string(REPLACE ";" "\n" knime_topp_tool_list_content "${CTD_executables}")
+  file(WRITE "${knime_topp_tool_list_file}" "${knime_topp_tool_list_content}\n")
   add_custom_target(
     knime_preflight_topp_binaries
     COMMAND ${CMAKE_COMMAND}
       -DTOPP_BIN_PATH=${TOPP_BIN_PATH}
-      -DTOOL_LIST=${ctd_executables_escaped}
+      -DTOOL_LIST_FILE=${knime_topp_tool_list_file}
       -DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}
       -P ${SCRIPT_DIRECTORY}check_topp_binaries.cmake
     DEPENDS TOPP

@@ -3,24 +3,31 @@
 # Inputs (via -D):
 # - TOPP_BIN_PATH: Directory containing TOPP tool binaries
 # - TOOL_LIST:     Semicolon-separated list of tool target names
+# - TOOL_LIST_FILE: Path to a file containing tool names (one per line)
 # - EXE_SUFFIX:    Executable suffix (usually empty on Unix)
 
 if(NOT DEFINED TOPP_BIN_PATH)
   message(FATAL_ERROR "TOPP_BIN_PATH is not set")
 endif()
 if(NOT DEFINED TOOL_LIST)
-  message(FATAL_ERROR "TOOL_LIST is not set")
+  if(DEFINED TOOL_LIST_FILE)
+    if(NOT EXISTS "${TOOL_LIST_FILE}")
+      message(FATAL_ERROR "TOOL_LIST_FILE does not exist: '${TOOL_LIST_FILE}'")
+    endif()
+    file(READ "${TOOL_LIST_FILE}" TOOL_LIST)
+  else()
+    message(FATAL_ERROR "TOOL_LIST is not set")
+  endif()
 endif()
 if(NOT DEFINED EXE_SUFFIX)
   set(EXE_SUFFIX "")
 endif()
 
 # `TOOL_LIST` should be a CMake list (semicolon-separated). Depending on how it
-# is passed through a build tool, it may arrive as a single space-separated
-# string. Normalize to a proper list in that case.
-if(TOOL_LIST MATCHES "[ \t\r\n]+" AND NOT TOOL_LIST MATCHES ";")
-  string(REGEX REPLACE "[ \t\r\n]+" ";" TOOL_LIST "${TOOL_LIST}")
-endif()
+# is passed (CLI, file, build tool), it may arrive as whitespace/newline- or
+# delimiter-separated string. Normalize to a proper list.
+string(REPLACE "," ";" TOOL_LIST "${TOOL_LIST}")
+string(REGEX REPLACE "[ \t\r\n]+" ";" TOOL_LIST "${TOOL_LIST}")
 
 set(missing_tools "")
 foreach(tool IN LISTS TOOL_LIST)
