@@ -283,6 +283,22 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   set(knime_topp_tool_list_file "${CMAKE_BINARY_DIR}/knime_topp_tools.txt")
   string(REPLACE ";" "\n" knime_topp_tool_list_content "${CTD_executables}")
   file(WRITE "${knime_topp_tool_list_file}" "${knime_topp_tool_list_content}\n")
+  set(knime_thirdparty_tool_list_file "${CMAKE_BINARY_DIR}/knime_thirdparty_topp_tools.txt")
+  string(REPLACE ";" "\n" knime_thirdparty_tool_list_content "${THIRDPARTY_ADAPTERS}")
+  file(WRITE "${knime_thirdparty_tool_list_file}" "${knime_thirdparty_tool_list_content}\n")
+
+  add_custom_command(
+    TARGET prepare_knime_payload_binaries POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+      -DTOPP_BIN_PATH=${TOPP_BIN_PATH}
+      -DPAYLOAD_BIN_PATH=${PAYLOAD_BIN_PATH}
+      -DTP_PAYLOAD_BIN_PATH=${TP_PAYLOAD_BIN_PATH}
+      -DTOOL_LIST_FILE=${knime_topp_tool_list_file}
+      -DTHIRDPARTY_LIST_FILE=${knime_thirdparty_tool_list_file}
+      -DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}
+      -P ${SCRIPT_DIRECTORY}copy_topp_binaries.cmake
+  )
+
   add_custom_target(
     knime_preflight_topp_binaries
     COMMAND ${CMAKE_COMMAND}
@@ -295,21 +311,24 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   add_dependencies(prepare_knime_payload_binaries knime_preflight_topp_binaries)
 endif()
 
-# copy the binaries
-foreach(TOOL ${CTD_executables})
-  set(tool_path $<TARGET_FILE:${TOOL}>)
-  if(${TOOL} IN_LIST THIRDPARTY_ADAPTERS)
-    add_custom_command(
-        TARGET  prepare_knime_payload_binaries POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${tool_path} "${TP_PAYLOAD_BIN_PATH}/"
-    )
-  else()
-    add_custom_command(
-        TARGET  prepare_knime_payload_binaries POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${tool_path} "${PAYLOAD_BIN_PATH}/"
-    )
-  endif()
-endforeach()
+# copy the binaries on multi-config generators where the helper list files are
+# not generated above.
+if(CMAKE_CONFIGURATION_TYPES)
+  foreach(TOOL ${CTD_executables})
+    set(tool_path $<TARGET_FILE:${TOOL}>)
+    if(${TOOL} IN_LIST THIRDPARTY_ADAPTERS)
+      add_custom_command(
+          TARGET  prepare_knime_payload_binaries POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy ${tool_path} "${TP_PAYLOAD_BIN_PATH}/"
+      )
+    else()
+      add_custom_command(
+          TARGET  prepare_knime_payload_binaries POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy ${tool_path} "${PAYLOAD_BIN_PATH}/"
+      )
+    endif()
+  endforeach()
+endif()
 
 add_custom_target(
     create_payload_share

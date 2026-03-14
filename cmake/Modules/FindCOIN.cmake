@@ -145,25 +145,23 @@ if(NOT TARGET CoinOR::CoinOR)
     # so this option allows explicitly opting in from the build configuration.
     # TODO: Find a better way to do this. Ideal would be if Coin exports a
     # CMake config. Maybe we can parse a header file? Or try_compile?
+    # Intentionally do not constrain BLA_VENDOR here. Let FindBLAS/FindLAPACK
+    # select the best available backend for the current platform/environment.
     find_package(BLAS)
-    message(STATUS "FindBLAS result: BLAS_FOUND='${BLAS_FOUND}', BLAS_LIBRARIES='${BLAS_LIBRARIES}', BLAS_LINKER_FLAGS='${BLAS_LINKER_FLAGS}', BLA_VENDOR='${BLA_VENDOR}'")
-    find_package(LAPACK)
-    message(STATUS "FindLAPACK result: LAPACK_FOUND='${LAPACK_FOUND}', LAPACK_LIBRARIES='${LAPACK_LIBRARIES}', BLA_VENDOR='${BLA_VENDOR}'")
-
-    # On some configurations, CMake's FindLAPACK may fail to detect lapack.lib
-    # when BLA_VENDOR is set. Retry without vendor restriction before giving up.
-    # though it is present in the prefix. In that case, try a second LAPACK
-    # search without the vendor restriction before giving up.
-    if(NOT LAPACK_FOUND AND (DEFINED BLA_VENDOR OR DEFINED ENV{BLA_VENDOR}))
-      set(_saved_BLA_VENDOR "${BLA_VENDOR}")
-      unset(BLA_VENDOR CACHE)
-      unset(LAPACK_LIBRARIES CACHE)
-      unset(LAPACK_LIBRARIES)
-      find_package(LAPACK)
-      if(_saved_BLA_VENDOR)
-        set(BLA_VENDOR "${_saved_BLA_VENDOR}" CACHE STRING "" FORCE)
-      endif()
+    if(TARGET BLAS::BLAS)
+      set(_openms_blas_target "YES")
+    else()
+      set(_openms_blas_target "NO")
     endif()
+    message(STATUS "FindBLAS result: BLAS_FOUND='${BLAS_FOUND}', BLAS_LIBRARIES='${BLAS_LIBRARIES}', BLAS_LINKER_FLAGS='${BLAS_LINKER_FLAGS}', BLAS::BLAS='${_openms_blas_target}'")
+
+    find_package(LAPACK)
+    if(TARGET LAPACK::LAPACK)
+      set(_openms_lapack_target "YES")
+    else()
+      set(_openms_lapack_target "NO")
+    endif()
+    message(STATUS "FindLAPACK result: LAPACK_FOUND='${LAPACK_FOUND}', LAPACK_LIBRARIES='${LAPACK_LIBRARIES}', LAPACK::LAPACK='${_openms_lapack_target}'")
 
     if(BLAS_FOUND)
       target_link_libraries(CoinOR::CoinOR INTERFACE BLAS::BLAS)
