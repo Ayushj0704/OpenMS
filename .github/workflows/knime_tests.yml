@@ -11,7 +11,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       KNIME_MAJOR_VERSION: 5
-      KNIME_MINOR_VERSION: 3
+      KNIME_MINOR_VERSION: 4
       INSTALLATION_DIR: ${{ github.workspace }}
     runs-on: ubuntu-latest
     steps:
@@ -70,6 +70,9 @@ jobs:
         run: |
           gh repo clone OpenMS/Tutorials
           pushd Tutorials/Workflows
-            ./executeBatch.sh "$KNIME_DIR/knime" ${INSTALLATION_DIR}
+            for wf in basic_peptide_*.knwf
+            do
+              "$KNIME_DIR/knime" -consoleLog --launcher.suppressErrors -nosave -nosplash -data "${INSTALLATION_DIR}" -application org.knime.product.KNIME_BATCH_APPLICATION -workflowFile="$(pwd)/${wf}" -reset -vmargs -Djava.io.tmpdir="${INSTALLATION_DIR}" --add-opens=java.base/sun.net.www.protocol.http=ALL-UNNAMED > "log_${wf}.txt"
+            done
             cat log*.txt
           popd
