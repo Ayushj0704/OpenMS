@@ -367,9 +367,18 @@ set(QT_PLUGIN_PATH_REL_TO_BIN ${INSTALL_LIB_PATH_REL_TO_BIN}/${INSTALL_PLUGIN_SU
 
 
 if(UNIX)
-	# use, i.e. don't skip the full RPATH for the build tree
-	if(NOT DEFINED CMAKE_SKIP_BUILD_RPATH)
-	  SET(CMAKE_SKIP_BUILD_RPATH FALSE)
+  # KNIME packaging runs freshly built TOPP tools from the build tree (e.g. to
+  # generate CTDs). Ensure RPATH handling is enabled so these executables can
+  # resolve libOpenMS from the build folder without relying on environment hacks.
+  if (ENABLE_PREPARE_KNIME_PACKAGE)
+    set(CMAKE_SKIP_RPATH FALSE)
+    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+    set(CMAKE_SKIP_INSTALL_RPATH FALSE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  endif()
+        # use, i.e. don't skip the full RPATH for the build tree
+        if(NOT DEFINED CMAKE_SKIP_BUILD_RPATH)
+          SET(CMAKE_SKIP_BUILD_RPATH FALSE)
   endif()
 
   if(NOT DEFINED CMAKE_MACOSX_RPATH)
@@ -409,11 +418,11 @@ if(UNIX)
   #endif()
   
   # our default RPATH to be added when installing. Can be changed per-target later, e.g. in app bundles
-  if(NOT DEFINED CMAKE_INSTALL_RPATH)
+  if(NOT DEFINED CMAKE_INSTALL_RPATH OR "${CMAKE_INSTALL_RPATH}" STREQUAL "")
     if (APPLE)
       if(NOT "${PACKAGE_TYPE}" STREQUAL "pkg")
         # currently our fix_dependencies.rb script used e.g. for dmg installer,
-				# requires our lib dir to be present in the RPATHS
+                                # requires our lib dir to be present in the RPATHS
         # so it can find libOpenMS for one of our executables, even if it is linked as @rpath/libOpenMS.
         # Disadvantage: even on the target machine, they will have the build folder baked in.
         # Alternative: copy all our libs first so they do not need to be found.
@@ -424,7 +433,11 @@ if(UNIX)
     else() # linux and variants
       SET(CMAKE_INSTALL_RPATH "$ORIGIN/${INSTALL_LIB_PATH_REL_TO_BIN}/")
     endif()
-	endif()
+        endif()
+
+  if (ENABLE_PREPARE_KNIME_PACKAGE)
+    message(STATUS "KNIME RPATH: CMAKE_SKIP_RPATH='${CMAKE_SKIP_RPATH}', CMAKE_SKIP_BUILD_RPATH='${CMAKE_SKIP_BUILD_RPATH}', CMAKE_SKIP_INSTALL_RPATH='${CMAKE_SKIP_INSTALL_RPATH}', CMAKE_BUILD_WITH_INSTALL_RPATH='${CMAKE_BUILD_WITH_INSTALL_RPATH}', CMAKE_INSTALL_RPATH='${CMAKE_INSTALL_RPATH}', INSTALL_LIB_PATH_REL_TO_BIN='${INSTALL_LIB_PATH_REL_TO_BIN}', CMAKE_LIBRARY_OUTPUT_DIRECTORY='${CMAKE_LIBRARY_OUTPUT_DIRECTORY}'")
+  endif()
 endif()
 
 #------------------------------------------------------------------------------
