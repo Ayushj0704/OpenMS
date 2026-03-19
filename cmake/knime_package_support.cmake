@@ -282,10 +282,12 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   # file at configure time and pass only the file path to the script.
   set(knime_topp_tool_list_file "${CMAKE_BINARY_DIR}/knime_topp_tools.txt")
   string(REPLACE ";" "\n" knime_topp_tool_list_content "${CTD_executables}")
-  file(WRITE "${knime_topp_tool_list_file}" "${knime_topp_tool_list_content}\n")
+  # Avoid a trailing empty list element when the file is read back in scripts.
+  file(WRITE "${knime_topp_tool_list_file}" "${knime_topp_tool_list_content}")
   set(knime_thirdparty_tool_list_file "${CMAKE_BINARY_DIR}/knime_thirdparty_topp_tools.txt")
   string(REPLACE ";" "\n" knime_thirdparty_tool_list_content "${THIRDPARTY_ADAPTERS}")
-  file(WRITE "${knime_thirdparty_tool_list_file}" "${knime_thirdparty_tool_list_content}\n")
+  # Avoid a trailing empty list element when the file is read back in scripts.
+  file(WRITE "${knime_thirdparty_tool_list_file}" "${knime_thirdparty_tool_list_content}")
 
   add_custom_command(
     TARGET prepare_knime_payload_binaries POST_BUILD
