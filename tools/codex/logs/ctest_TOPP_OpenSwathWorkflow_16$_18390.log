@@ -1,0 +1,45 @@
+UpdateCTestConfiguration  from :C:/Users/piyus/OpenMS/bld/DartConfiguration.tcl
+UpdateCTestConfiguration  from :C:/Users/piyus/OpenMS/bld/DartConfiguration.tcl
+Test project C:/Users/piyus/OpenMS/bld
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1812
+    Start 1812: TOPP_OpenSwathWorkflow_16
+
+1812: Test command: C:\Users\piyus\OpenMS\bld\bin\OpenSwathWorkflow.exe "-in" "C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_16_input.sqMass" "-tr" "C:/Users/piyus/OpenMS/src/tests/topp/OpenSwathWorkflow_1_input.TraML" "-Calibration:rt_norm" "C:/Users/piyus/OpenMS/src/tests/topp/OpenSwathWorkflow_1_input.trafoXML" "-out_chrom" "C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_16.chrom.tmp.mzML" "-out_features" "C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_16.tmp.featureXML" "-readOptions" "workingInMemory" "-Calibration:auto_irt:enabled" "false" "-Calibration:windows:estimate_rt" "false" "-Calibration:windows:estimate_mz" "false" "-Calibration:windows:estimate_im" "false" "-test" "-mz_extraction_window" "0.05" "-mz_extraction_window_unit" "Th" "-ms1_isotopes" "0" "-Scoring:TransitionGroupPicker:compute_peak_quality" "-Scoring:Scores:use_ms1_mi" "false" "-Scoring:Scores:use_mi_score" "false" "-ms1_isotopes" "2"
+1812: Working Directory: C:/Users/piyus/OpenMS/bld/src/tests/topp
+1812: Test timeout computed to be: 10000000
+1812: Warning: Duplicate parameter '-ms1_isotopes' given. Using last occurrence with value '2' (ignoring '0').
+1812: Progress of 'Load TraML file':
+1812: -- done [took 0.14 s (CPU), 0.18 s (Wall)] -- 
+1812: Loaded 1 proteins, 7 compounds with 18 transitions.
+1812: 
+1812: Processing Run 1/1
+1812: Progress of 'Loading sqmass data file C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_16_input.sqMass':
+1812: -- done [took 0.00 s (CPU), 0.00 s (Wall)] -- 
+1812: Determined there to be 6 SWATH windows and in total 19 MS1 spectra
+1812: Using existing RT transformation - which has no m/z and ion mobility calibration
+1812: Will analyze 18 transitions in total.
+1812: Progress of 'Extracting and scoring transitions':
+1812: Thread 0_0 will analyze 1 compounds and 3 transitions from SWATH 0 (batch 0 out of 1)
+1812: Thread 0_0 will analyze 1 compounds and 3 transitions from SWATH 1 (batch 0 out of 1)
+1812: Thread 0_0 will analyze 1 compounds and 3 transitions from SWATH 2 (batch 0 out of 1)
+1812: Thread 0_0 will analyze 1 compounds and 3 transitions from SWATH 3 (batch 0 out of 1)
+1812: Thread 0_0 will analyze 2 compounds and 6 transitions from SWATH 4 (batch 0 out of 1)
+1812: -- done [took 0.00 s (CPU), 0.05 s (Wall)] -- 
+1812: PERF OpenSwathWorkflow::performExtraction: windows=5, batches=5, total=0.05 s; select=0.00 s, index=0.00 s, batch=0.00 s, ms1=0.00 s, coords=0.00 s, extract=0.00 s, convert=0.00 s, score=0.04 s, write=0.00 s
+1812: 
+1812: Writing features ...
+1812: OpenSwathWorkflow took 0.36 s (wall), 0.19 s (CPU), 0.02 s (system), 0.17 s (user); Peak Memory Usage: 46 MB.
+1/1 Test #1812: TOPP_OpenSwathWorkflow_16 ........   Passed    0.47 sec
+
+The following tests passed:
+	TOPP_OpenSwathWorkflow_16
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.77 sec

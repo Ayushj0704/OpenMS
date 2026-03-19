@@ -8,6 +8,11 @@
 # - THIRDPARTY_LIST_FILE: Path to newline-separated third-party adapter names
 # - EXE_SUFFIX: Executable suffix (e.g. ".exe" on Windows, empty on Unix)
 
+if(POLICY CMP0007)
+  # Avoid dev warnings with empty list elements (e.g., from trailing newlines).
+  cmake_policy(SET CMP0007 NEW)
+endif()
+
 if(NOT DEFINED TOPP_BIN_PATH)
   message(FATAL_ERROR "TOPP_BIN_PATH is not set")
 endif()
@@ -41,6 +46,14 @@ string(REPLACE "," ";" TOOL_LIST "${TOOL_LIST}")
 string(REGEX REPLACE "[ \t\r\n]+" ";" TOOL_LIST "${TOOL_LIST}")
 string(REPLACE "," ";" THIRDPARTY_LIST "${THIRDPARTY_LIST}")
 string(REGEX REPLACE "[ \t\r\n]+" ";" THIRDPARTY_LIST "${THIRDPARTY_LIST}")
+
+# Drop empty elements (typically caused by a trailing newline in the list files).
+string(REGEX REPLACE ";+" ";" TOOL_LIST "${TOOL_LIST}")
+string(REGEX REPLACE "^;" "" TOOL_LIST "${TOOL_LIST}")
+string(REGEX REPLACE ";$" "" TOOL_LIST "${TOOL_LIST}")
+string(REGEX REPLACE ";+" ";" THIRDPARTY_LIST "${THIRDPARTY_LIST}")
+string(REGEX REPLACE "^;" "" THIRDPARTY_LIST "${THIRDPARTY_LIST}")
+string(REGEX REPLACE ";$" "" THIRDPARTY_LIST "${THIRDPARTY_LIST}")
 
 set(copied_core 0)
 set(copied_thirdparty 0)

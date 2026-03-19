@@ -1,0 +1,44 @@
+UpdateCTestConfiguration  from :C:/Users/piyus/OpenMS/bld/DartConfiguration.tcl
+UpdateCTestConfiguration  from :C:/Users/piyus/OpenMS/bld/DartConfiguration.tcl
+Test project C:/Users/piyus/OpenMS/bld
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1815
+    Start 1815: TOPP_OpenSwathWorkflow_17
+
+1815: Test command: C:\Users\piyus\OpenMS\bld\bin\OpenSwathWorkflow.exe "-in" "C:/Users/piyus/OpenMS/src/tests/topp/OpenSwathWorkflow_17_input.mzML" "-tr" "C:/Users/piyus/OpenMS/src/tests/topp/OpenSwathWorkflow_17_input.tsv" "-out_chrom" "C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_17.chrom.tmp.mzML" "-out_features" "C:/Users/piyus/OpenMS/bld/src/tests/topp/tmp_path/OpenSwathWorkflow_17.tmp.featureXML" "-readOptions" "workingInMemory" "-ion_mobility_window" "0.05" "-use_ms1_ion_mobility" "false" "-Scoring:Scores:use_ion_mobility_scores" "-Calibration:auto_irt:enabled" "false" "-Calibration:windows:estimate_rt" "false" "-Calibration:windows:estimate_mz" "false" "-Calibration:windows:estimate_im" "false" "-test" "-mz_extraction_window" "0.05" "-mz_extraction_window_unit" "Th" "-ms1_isotopes" "0" "-Scoring:TransitionGroupPicker:compute_peak_quality" "-Scoring:Scores:use_ms1_mi" "false" "-Scoring:Scores:use_mi_score" "false"
+1815: Working Directory: C:/Users/piyus/OpenMS/bld/src/tests/topp
+1815: Test timeout computed to be: 10000000
+1815: Since neither rt_norm nor tr_irt nor auto_irt is set, OpenSWATH will not use RT-transformation (rather a null transformation will be applied)
+1815: Warning: -irt_im_extraction_window is not set, this will lead to no ion mobility calibration
+1815: Progress of 'Load TSV file':
+1815: -- done [took 0.00 s (CPU), 0.00 s (Wall)] -- 
+1815: Loaded 1 proteins, 6 compounds with 18 transitions.
+1815: 
+1815: Processing Run 1/1
+1815: Loading mzML file C:/Users/piyus/OpenMS/src/tests/topp/OpenSwathWorkflow_17_input.mzML using readoptions normal
+1815: Will analyze the metadata first to determine the number of SWATH windows and the window sizes.
+1815: Determined there to be 1 SWATH windows and in total 50 MS1 spectra
+1815: Determined there to be 1 SWATH windows and in total 50 MS1 spectra
+1815: Will analyze 18 transitions in total.
+1815: Progress of 'Extracting and scoring transitions':
+1815: Thread 0_0 will analyze 2 compounds and 6 transitions from SWATH 1 (batch 0 out of 1)
+1815: -- done [took 0.00 s (CPU), 0.02 s (Wall)] -- 
+1815: PERF OpenSwathWorkflow::performExtraction: windows=1, batches=1, total=0.02 s; select=0.00 s, index=0.00 s, batch=0.00 s, ms1=0.00 s, coords=0.00 s, extract=0.00 s, convert=0.00 s, score=0.02 s, write=0.00 s
+1815: 
+1815: Writing features ...
+1815: OpenSwathWorkflow took 0.21 s (wall), 0.09 s (CPU), 0.00 s (system), 0.09 s (user); Peak Memory Usage: 40 MB.
+1815: Warning: Found multiple peptide sequences for peptide label group light. This is most likely an error and to fix this, a new peptide label group will be inferred - to override this decision, please use the override_group_label_check parameter.
+1815: <Warning: Found multiple peptide sequences for peptide label group light. This is most likely an error and to fix this, a new peptide label group will be inferred - to override this decision, please use the override_group_label_check parameter.> occurred 15 times
+1/1 Test #1815: TOPP_OpenSwathWorkflow_17 ........   Passed    0.31 sec
+
+The following tests passed:
+	TOPP_OpenSwathWorkflow_17
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.46 sec

@@ -16,8 +16,10 @@
 #include <OpenMS/FORMAT/FileTypes.h>
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/SYSTEM/StopWatch.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <string_view>
 #include <unordered_map>
 
@@ -64,6 +66,45 @@ namespace OpenMS
     bool load_into_memory,
     const Param & mrm_mapping_param)
   {
+    const bool perf_enabled = (std::getenv("OPENMS_PROFILE_OPENSWATH") != nullptr);
+
+    struct PerfSplit
+    {
+      double select_swath_transitions_s{0.0};
+      double build_transition_index_s{0.0};
+      double assemble_batch_experiment_s{0.0};
+      double ms1_extraction_s{0.0};
+      double prepare_coordinates_s{0.0};
+      double extract_chromatograms_s{0.0};
+      double convert_chromatograms_s{0.0};
+      double score_chromatograms_s{0.0};
+      double write_outputs_s{0.0};
+
+      Size nr_swath_windows{0};
+      Size nr_batches{0};
+    };
+
+    PerfSplit perf_total;
+    StopWatch perf_total_timer;
+    if (perf_enabled)
+    {
+      perf_total_timer.start();
+    }
+
+    auto time_block = [&](double& accum_seconds, auto&& fn)
+    {
+      if (!perf_enabled)
+      {
+        fn();
+        return;
+      }
+      StopWatch sw;
+      sw.start();
+      fn();
+      sw.stop();
+      accum_seconds += sw.getClockTime();
+    };
+
     bool ms1_only = (swath_maps.size() == 1 && swath_maps[0].ms1);
 
     if (mrm_)
@@ -80,6 +121,14 @@ namespace OpenMS
 
       writeOutFeaturesAndChroms_(filtered_chroms, empty_ms1_chromatograms, featureFile, out_featureFile, store_features, chromConsumer);
       this->endProgress();
+
+      if (perf_enabled)
+      {
+        perf_total_timer.stop();
+        OPENMS_LOG_INFO << "PERF OpenSwathWorkflow::performExtraction (MRM): total="
+                        << StopWatch::toString(perf_total_timer.getClockTime())
+                        << std::endl;
+      }
       return;
     }
 
@@ -106,8 +155,11 @@ namespace OpenMS
     if (ms1_only)
     {
       std::vector< MSChromatogram > ms1_chromatograms;
-      MS1Extraction_(ms1_map_, swath_maps, ms1_chromatograms, ms1_cp,
-                     transition_exp, trafo_inverse, ms1_only, ms1_isotopes);
+      time_block(perf_total.ms1_extraction_s, [&]
+      {
+        MS1Extraction_(ms1_map_, swath_maps, ms1_chromatograms, ms1_cp,
+                       transition_exp, trafo_inverse, ms1_only, ms1_isotopes);
+      });
 
       FeatureMap featureFile;
       std::shared_ptr<MSExperiment> empty_exp = std::shared_ptr<MSExperiment>(new MSExperiment);
@@ -230,14 +282,19 @@ namespace OpenMS
     {
       if (!swath_maps[i].ms1) // skip MS1
       {
+        PerfSplit perf_swath;
+        ++perf_swath.nr_swath_windows;
 
         // Step 1: select which transitions to extract (proceed in batches)
         OpenSwath::LightTargetedExperiment transition_exp_used_all;
         if (!(prm_ || pasef_))
         {
           // Step 1.1: select transitions matching the window
-          OpenSwathHelper::selectSwathTransitions(transition_exp, transition_exp_used_all,
-              cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
+          time_block(perf_swath.select_swath_transitions_s, [&]
+          {
+            OpenSwathHelper::selectSwathTransitions(transition_exp, transition_exp_used_all,
+                cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
+          });
         }
         else
         {
@@ -302,12 +359,15 @@ namespace OpenMS
           // transitions per SWATH window can be substantial.
           using TransitionIndex = std::unordered_map<std::string_view, std::vector<Size>>;
           TransitionIndex transition_index;
-          transition_index.reserve(transition_exp_used_all.getCompounds().size());
-          for (Size t = 0; t < transition_exp_used_all.transitions.size(); ++t)
+          time_block(perf_swath.build_transition_index_s, [&]
           {
-            const auto key = std::string_view(transition_exp_used_all.transitions[t].peptide_ref);
-            transition_index.try_emplace(key).first->second.push_back(t);
-          }
+            transition_index.reserve(transition_exp_used_all.getCompounds().size());
+            for (Size t = 0; t < transition_exp_used_all.transitions.size(); ++t)
+            {
+              const auto key = std::string_view(transition_exp_used_all.transitions[t].peptide_ref);
+              transition_index.try_emplace(key).first->second.push_back(t);
+            }
+          });
 
 #ifdef _OPENMP
 #ifdef MT_ENABLE_NESTED_OPENMP
@@ -335,6 +395,7 @@ namespace OpenMS
             }
             const size_t batch_end = std::min(batch_start + static_cast<size_t>(batch_size),
                                               transition_exp_used_all.compounds.size());
+            ++perf_swath.nr_batches;
 
 #ifdef _OPENMP
 #ifdef MT_ENABLE_NESTED_OPENMP
@@ -366,39 +427,45 @@ namespace OpenMS
 
             // Create the new, batch-size transition experiment
             OpenSwath::LightTargetedExperiment transition_exp_used;
-            transition_exp_used.proteins = transition_exp_used_all.proteins;
-            transition_exp_used.compounds.insert(transition_exp_used.compounds.end(),
-              transition_exp_used_all.compounds.begin() + batch_start,
-              transition_exp_used_all.compounds.begin() + batch_end);
-
-            // Collect transition indices for all compounds in this batch, then sort by original
-            // transition order to preserve output determinism (matches the previous behavior).
-            std::vector<Size> transition_indices;
-            for (const auto& compound : transition_exp_used.compounds)
+            time_block(perf_swath.assemble_batch_experiment_s, [&]
             {
-              const auto it = transition_index.find(std::string_view(compound.id));
-              if (it != transition_index.end())
+              transition_exp_used.proteins = transition_exp_used_all.proteins;
+              transition_exp_used.compounds.insert(transition_exp_used.compounds.end(),
+                transition_exp_used_all.compounds.begin() + batch_start,
+                transition_exp_used_all.compounds.begin() + batch_end);
+
+              // Collect transition indices for all compounds in this batch, then sort by original
+              // transition order to preserve output determinism (matches the previous behavior).
+              std::vector<Size> transition_indices;
+              for (const auto& compound : transition_exp_used.compounds)
               {
-                transition_indices.insert(transition_indices.end(), it->second.begin(), it->second.end());
+                const auto it = transition_index.find(std::string_view(compound.id));
+                if (it != transition_index.end())
+                {
+                  transition_indices.insert(transition_indices.end(), it->second.begin(), it->second.end());
+                }
               }
-            }
-            std::sort(transition_indices.begin(), transition_indices.end());
-            transition_indices.erase(std::unique(transition_indices.begin(), transition_indices.end()),
-                                     transition_indices.end());
+              std::sort(transition_indices.begin(), transition_indices.end());
+              transition_indices.erase(std::unique(transition_indices.begin(), transition_indices.end()),
+                                       transition_indices.end());
 
-            transition_exp_used.transitions.reserve(transition_indices.size());
-            for (const auto idx : transition_indices)
-            {
-              transition_exp_used.transitions.push_back(transition_exp_used_all.transitions[idx]);
-            }
+              transition_exp_used.transitions.reserve(transition_indices.size());
+              for (const auto idx : transition_indices)
+              {
+                transition_exp_used.transitions.push_back(transition_exp_used_all.transitions[idx]);
+              }
+            });
 
             // Extract MS1 chromatograms for this batch
             std::vector< MSChromatogram > ms1_chromatograms;
             if (ms1_map_ != nullptr)
             {
-              OpenSwath::SpectrumAccessPtr threadsafe_ms1 = ms1_map_->lightClone();
-              MS1Extraction_(threadsafe_ms1, swath_maps, ms1_chromatograms, ms1_cp,
-                  transition_exp_used, trafo_inverse, ms1_only, ms1_isotopes);
+              time_block(perf_swath.ms1_extraction_s, [&]
+              {
+                OpenSwath::SpectrumAccessPtr threadsafe_ms1 = ms1_map_->lightClone();
+                MS1Extraction_(threadsafe_ms1, swath_maps, ms1_chromatograms, ms1_cp,
+                    transition_exp_used, trafo_inverse, ms1_only, ms1_isotopes);
+              });
             }
 
             // Step 2.1: extract these transitions
@@ -408,33 +475,67 @@ namespace OpenMS
 
             // Step 2.2: prepare the extraction coordinates and extract chromatograms
             // chrom_list contains one entry for each fragment ion (transition) in transition_exp_used
-            prepareExtractionCoordinates_(chrom_list, coordinates, transition_exp_used, trafo_inverse, cp);
-            extractor.extractChromatograms(current_swath_map_inner, chrom_list, coordinates, cp.mz_extraction_window,
-                cp.ppm, cp.im_extraction_window, cp.extraction_function);
+            time_block(perf_swath.prepare_coordinates_s, [&]
+            {
+              prepareExtractionCoordinates_(chrom_list, coordinates, transition_exp_used, trafo_inverse, cp);
+            });
+
+            time_block(perf_swath.extract_chromatograms_s, [&]
+            {
+              extractor.extractChromatograms(current_swath_map_inner, chrom_list, coordinates, cp.mz_extraction_window,
+                  cp.ppm, cp.im_extraction_window, cp.extraction_function);
+            });
 
             // Step 2.3: convert chromatograms back to OpenMS::MSChromatogram and write to output
             PeakMap chrom_exp;
-            extractor.return_chromatogram(chrom_list, coordinates, transition_exp_used,  SpectrumSettings(),
-                                          chrom_exp.getChromatograms(), false, cp.im_extraction_window);
+            time_block(perf_swath.convert_chromatograms_s, [&]
+            {
+              extractor.return_chromatogram(chrom_list, coordinates, transition_exp_used,  SpectrumSettings(),
+                                            chrom_exp.getChromatograms(), false, cp.im_extraction_window);
+            });
 
 
             // Step 3: score these extracted transitions
             FeatureMap featureFile;
             std::vector< OpenSwath::SwathMap > tmp = {swath_maps[i]};
             tmp.back().sptr = current_swath_map_inner;
-            scoreAllChromatograms_(chrom_exp.getChromatograms(), ms1_chromatograms, tmp, transition_exp_used,
-                feature_finder_param, trafo, cp.rt_extraction_window, featureFile, osw_writer, ms1_isotopes, false);
+            time_block(perf_swath.score_chromatograms_s, [&]
+            {
+              scoreAllChromatograms_(chrom_exp.getChromatograms(), ms1_chromatograms, tmp, transition_exp_used,
+                  feature_finder_param, trafo, cp.rt_extraction_window, featureFile, osw_writer, ms1_isotopes, false);
+            });
 
             // Step 4: write all chromatograms and features out into an output object / file
             // (this needs to be done in a critical section since we only have one
             // output file and one output map).
             #pragma omp critical (osw_write_out)
             {
-              writeOutFeaturesAndChroms_(chrom_exp.getChromatograms(), ms1_chromatograms, featureFile, out_featureFile, store_features, chromConsumer);
+              time_block(perf_swath.write_outputs_s, [&]
+              {
+                writeOutFeaturesAndChroms_(chrom_exp.getChromatograms(), ms1_chromatograms, featureFile, out_featureFile, store_features, chromConsumer);
+              });
             }
           }
 
         } // continue 2 (no continue due to OpenMP)
+
+        if (perf_enabled)
+        {
+#pragma omp critical (perf_totals)
+          {
+            perf_total.select_swath_transitions_s += perf_swath.select_swath_transitions_s;
+            perf_total.build_transition_index_s += perf_swath.build_transition_index_s;
+            perf_total.assemble_batch_experiment_s += perf_swath.assemble_batch_experiment_s;
+            perf_total.ms1_extraction_s += perf_swath.ms1_extraction_s;
+            perf_total.prepare_coordinates_s += perf_swath.prepare_coordinates_s;
+            perf_total.extract_chromatograms_s += perf_swath.extract_chromatograms_s;
+            perf_total.convert_chromatograms_s += perf_swath.convert_chromatograms_s;
+            perf_total.score_chromatograms_s += perf_swath.score_chromatograms_s;
+            perf_total.write_outputs_s += perf_swath.write_outputs_s;
+            perf_total.nr_swath_windows += perf_swath.nr_swath_windows;
+            perf_total.nr_batches += perf_swath.nr_batches;
+          }
+        }
       } // continue 1 (no continue due to OpenMP)
 
       #pragma omp critical (progress)
@@ -451,6 +552,25 @@ namespace OpenMS
     }
 #endif
 #endif
+
+    if (perf_enabled)
+    {
+      perf_total_timer.stop();
+      OPENMS_LOG_INFO << "PERF OpenSwathWorkflow::performExtraction: "
+                      << "windows=" << perf_total.nr_swath_windows
+                      << ", batches=" << perf_total.nr_batches
+                      << ", total=" << StopWatch::toString(perf_total_timer.getClockTime())
+                      << "; select=" << StopWatch::toString(perf_total.select_swath_transitions_s)
+                      << ", index=" << StopWatch::toString(perf_total.build_transition_index_s)
+                      << ", batch=" << StopWatch::toString(perf_total.assemble_batch_experiment_s)
+                      << ", ms1=" << StopWatch::toString(perf_total.ms1_extraction_s)
+                      << ", coords=" << StopWatch::toString(perf_total.prepare_coordinates_s)
+                      << ", extract=" << StopWatch::toString(perf_total.extract_chromatograms_s)
+                      << ", convert=" << StopWatch::toString(perf_total.convert_chromatograms_s)
+                      << ", score=" << StopWatch::toString(perf_total.score_chromatograms_s)
+                      << ", write=" << StopWatch::toString(perf_total.write_outputs_s)
+                      << std::endl;
+    }
   }
 
   void OpenSwathWorkflow::writeOutFeaturesAndChroms_(
@@ -896,4 +1016,3 @@ namespace OpenMS
     }
   }
 }
-

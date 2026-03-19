@@ -419,12 +419,28 @@ else()
   endforeach()
   add_custom_command(
           TARGET prepare_knime_payload_libs POST_BUILD
-          COMMAND find "${PAYLOAD_BIN_PATH}" -maxdepth 1 -type f -exec ${CMAKE_STRIP} -s {} "\;"
-          COMMAND find "${TP_PAYLOAD_BIN_PATH}" -maxdepth 1 -type f -exec ${CMAKE_STRIP} -s {} "\;"
+          COMMAND ${CMAKE_COMMAND}
+            -DSTRIP_TOOL=${CMAKE_STRIP}
+            -DSTRIP_ARGS=-s
+            -DTARGET_DIR=${PAYLOAD_BIN_PATH}
+            -DRECURSE=OFF
+            -P ${SCRIPT_DIRECTORY}strip_payload_files.cmake
+          COMMAND ${CMAKE_COMMAND}
+            -DSTRIP_TOOL=${CMAKE_STRIP}
+            -DSTRIP_ARGS=-s
+            -DTARGET_DIR=${TP_PAYLOAD_BIN_PATH}
+            -DRECURSE=OFF
+            -P ${SCRIPT_DIRECTORY}strip_payload_files.cmake
   )
   add_custom_command(
           TARGET prepare_knime_payload_libs POST_BUILD
-          COMMAND find "${PAYLOAD_LIB_PATH}" -type f -name "*.so" -exec ${CMAKE_STRIP} -x {} "\;"
+          COMMAND ${CMAKE_COMMAND}
+            -DSTRIP_TOOL=${CMAKE_STRIP}
+            -DSTRIP_ARGS=-x
+            -DTARGET_DIR=${PAYLOAD_LIB_PATH}
+            -DRECURSE=ON
+            -DGLOB_SUFFIX=.so
+            -P ${SCRIPT_DIRECTORY}strip_payload_files.cmake
   )
 endif()
 
