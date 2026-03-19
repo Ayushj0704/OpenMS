@@ -87,7 +87,10 @@ jobs:
             else
               echo "pkg_type=none" >> $GITHUB_OUTPUT
             fi
-            echo "cxx_compiler=${{ matrix.compiler }}-${{ matrix.compiler_ver }}" >> $GITHUB_OUTPUT
+            # On GitHub Ubuntu runners, the versioned compiler binary may not exist
+            # (e.g. clang++-17), even though the default compiler is available.
+            # Keep compiler_ver only for labeling; use the generic compiler for CMake.
+            echo "cxx_compiler=${{ matrix.compiler }}" >> $GITHUB_OUTPUT
           fi
 
           if [[ "${{ matrix.os }}" == windows-* ]]; then
