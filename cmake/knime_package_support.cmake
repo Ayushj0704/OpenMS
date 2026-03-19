@@ -184,17 +184,28 @@ add_custom_target(
     DEPENDS create_knime_folders TOPP
 )
 
+# Running TOPP tools from the build tree needs help finding the just-built shared libraries
+# (e.g., libOpenMS.so) on CI, where no LD_LIBRARY_PATH is set by default.
+set(OPENMS_CTD_RUNNER)
+if(APPLE)
+  list(APPEND OPENMS_CTD_RUNNER ${CMAKE_COMMAND} -E env
+    "DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:OpenMS>:$ENV{DYLD_LIBRARY_PATH}")
+elseif(UNIX)
+  list(APPEND OPENMS_CTD_RUNNER ${CMAKE_COMMAND} -E env
+    "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:OpenMS>:$ENV{LD_LIBRARY_PATH}")
+endif()
+
 # call the tools to write ctds
 foreach(TOOL ${CTD_executables})
   if(${TOOL} IN_LIST THIRDPARTY_ADAPTERS)
     add_custom_command(
       TARGET  create_ctds POST_BUILD
-      COMMAND $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_TP_PATH}
+      COMMAND ${OPENMS_CTD_RUNNER} $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_TP_PATH}
     )
   else()
     add_custom_command(
         TARGET  create_ctds POST_BUILD
-        COMMAND $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_PATH}
+        COMMAND ${OPENMS_CTD_RUNNER} $<TARGET_FILE:${TOOL}> -write_ctd ${CTD_PATH}
     )
   endif()
 endforeach()
@@ -206,7 +217,7 @@ endforeach()
 # TODO change description and accepting file types?
 add_custom_command(
   TARGET  create_ctds POST_BUILD
-  COMMAND $<TARGET_FILE:FileConverter> -write_ctd ${CTD_TP_PATH}
+  COMMAND ${OPENMS_CTD_RUNNER} $<TARGET_FILE:FileConverter> -write_ctd ${CTD_TP_PATH}
   COMMAND ${CMAKE_COMMAND} -E rename ${CTD_TP_PATH}/FileConverter.ctd ${CTD_TP_PATH}/RawFileConverter.ctd
   COMMAND ${CMAKE_COMMAND} -DSCRIPT_DIR=${SCRIPT_DIRECTORY} -DTOOLNAME=RawFileConverter -DCTD_FILE=${CTD_TP_PATH}/RawFileConverter.ctd -P ${SCRIPT_DIRECTORY}change_exec_name_in_ctd.cmake
 )
